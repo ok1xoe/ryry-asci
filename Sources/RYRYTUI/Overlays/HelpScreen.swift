@@ -38,7 +38,11 @@ public final class HelpScreen: OverlayScreen {
         var out = ["Keys", ""]
         func line(_ label: String, _ text: String) { out.append("  " + label.fitted(to: 24) + text) }
         let macros = Action.allCases.filter { if case .macro = $0 { return true }; return false }
-        out.append("  Macros: " + macros.map { keyMap.label(for: $0) }.joined(separator: "   "))
+        let labels = macros.map { keyMap.label(for: $0) }
+        // Wrapped into rows of four so the list fits a narrow terminal.
+        for (n, start) in stride(from: 0, to: labels.count, by: 4).enumerated() {
+            out.append((n == 0 ? "  Macros: " : "          ") + labels[start..<min(start + 4, labels.count)].joined(separator: "   "))
+        }
         for a in Action.allCases where !macros.contains(a) { line(keyMap.label(for: a), describe(a)) }
         out += ["", "Mouse (when the terminal supports it)",
                 "  click a word in the receive pane     puts the word into the QSO (call, name, RST, number)",

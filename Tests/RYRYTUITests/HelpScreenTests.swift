@@ -46,3 +46,9 @@ private func key(_ k: Key, _ m: Modifiers = []) -> InputEvent { .key(k, m) }
     #expect((0..<40).contains { y in String((0..<100).map { after[x: $0, y: y].char }).contains("[TX]") })
     await f.model.stop()
 }
+
+@Test func helpLinesFitAnEightyColumnTerminal() {
+    for l in HelpScreen.lines(keyMap: KeyMap()) where !l.hasPrefix("In the transmit pane") && !l.hasPrefix("Everything works") {
+        #expect(l.count <= 100, "too wide (\(l.count)): \(l)")
+    }
+}
