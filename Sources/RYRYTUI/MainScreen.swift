@@ -133,7 +133,7 @@ public final class MainScreen {
         case .focusNext: focus(forward: true)
         case .focusPrev: focus(forward: false)
         case .settings: ui.window = nil; overlay = SettingsMenu(model: model)
-        case .help: ui.help.toggle()
+        case .help: ui.window = nil; overlay = HelpScreen()
         case .quit: return false
         case .suspend: onSuspend?()
         case .freqEntry: ui.prompt = Prompt(kind: .frequency, title: "Frequency (kHz)")

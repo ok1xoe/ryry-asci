@@ -169,3 +169,32 @@ RYRY looks like **fldigi** to loggers (XML-RPC on port 7362), so loggers such as
 
 ---
 RYRY © 2026 OK1XOE, GNU LGPL v3 license (source code: github.com/ok1xoe/RYRY). Demodulator core MMTTY © Makoto Mori (JE3HHT), Nobuyuki Oba. DXCC: cty.dat – AD1C.
+
+## 12. Console version (ryry-tui)
+
+`ryry-tui` is RYRY for the terminal. It has the same engine, settings and log as the application, so everything you set up in the
+application (radio, sound card, station, contest, macros) works in it too. Do not run both at the same time: only one of them can
+use the sound card and the radio port.
+
+**Start:** `ryry-tui` in a terminal that is at least 100 columns by 32 rows (a smaller one shows a notice instead). The picture adapts
+to the terminal: true color, 256 colors, 16 colors or none; half blocks or plain ASCII (`--ascii`); `--no-mouse` if your terminal
+misbehaves with the mouse. Over SSH you log in to the Mac with the radio and start it there.
+
+**Screen:** the top bar (TX/RX, Tune, Stop, state, demodulator, frequency, signal; baud, shift, filters and the switches XY, 2D, AFC, NET,
+REV, ATC, SQ), the spectrum and waterfall (the mark tone is `▼`, the space tone `▽`), the receive pane, the transmit pane, the 16
+macros, the status line and on the right the QSO panel.
+
+**Keys:** Ctrl+G shows them all. The most used: F1–F12 and ⇧F1–⇧F4 (Alt+1–4 where ⇧F-keys do not arrive) run the macros,
+Ctrl+T switches TX/RX, Esc goes to receive at once, Ctrl+L logs the QSO, Tab/⇧Tab move between the transmit pane, the receive pane
+and the QSO fields, Alt+F enters the frequency, Alt+L/S/B/C/M open Log, Spots, Band map, Score and Multipliers (Ctrl+O steps through
+them; Esc closes), Ctrl+P settings, Ctrl+Q quits, Ctrl+Z suspends.
+
+**Mouse:** click a word in the receive pane to put it into the QSO (call, name, RST or number as in the application); click the
+spectrum or waterfall to tune the mark tone, right click adds a notch; click the macros and the top-bar buttons; the wheel scrolls
+the receive pane.
+
+**Windows:** in the Log window `/` searches, Enter edits a QSO, `d` deletes it, `i` imports ADIF, `a` exports ADIF and `e` Cabrillo
+(you type the path, Tab completes it). The Spots window has `m` for RTTY only / all modes, Enter tunes to the spot.
+
+**Settings** (Ctrl+P) is a short list: station, sound card, radio and PTT, contest, macros. `s` saves and applies, Esc throws the
+changes away. The rest stays in `settings.json`, which is not touched except for the keys you changed.

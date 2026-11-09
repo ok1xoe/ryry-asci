@@ -89,3 +89,24 @@ Further features from MMTTY:
   WAE with the QTC exchange (both sending and receiving a series in the QSO panel, limits per the DARC rules, QTC in Cabrillo);
 - 28 RTTY contest presets (every HF RTTY contest on contestcalendar.com) with the exchange, points, multipliers, dupes and
   dates per the official rules, and a rules overview in Settings → Contest.
+
+## The console version (ryry-tui)
+
+The same RTTY application in the terminal, drawn with Unicode/ASCII art: spectrum and waterfall, receive and transmit panes,
+16 macros, the QSO panel, and the Log, Spots, Band map, Score and Multipliers windows. It uses the same engine, settings
+(`settings.json`) and log files as the GUI, so you can switch between the two (not at the same time – they would fight over the
+sound card).
+
+    swift build -c release
+    .build/release/ryry-tui              # needs a terminal of at least 100x32 characters
+    .build/release/ryry-tui --help       # --ascii, --colors=none|16|256|true, --no-mouse, --settings DIR
+
+It does not depend on a particular terminal: colors degrade from true color to 256, 16 and monochrome, half blocks to plain
+ASCII, the mouse is optional (everything works from the keyboard). Press **Ctrl+G** for the list of keys. The important ones:
+F1–F12 and ⇧F1–⇧F4 (or Alt+1–4) macros, Ctrl+T TX/RX, Esc immediate RX, Ctrl+L log the QSO, Tab changes the pane,
+Alt+L/S/B/C/M open the windows (Ctrl+O steps through them), Ctrl+P settings, Ctrl+Q quit. Clicking a word in the receive pane
+puts it into the QSO, a click on the spectrum tunes the mark tone.
+
+Limits of the first version: macOS only (CoreAudio), the audio stays on the Mac (over SSH you run `ryry-tui` on the Mac with
+the radio), the WAE QTC panel, the contest dialogs, the macro colours and the language setting stay in the GUI / `settings.json`.
+Design: `docs/superpowers/specs/2026-11-09-ryry-tui-design.md`.

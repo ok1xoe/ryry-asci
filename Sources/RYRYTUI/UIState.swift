@@ -17,7 +17,6 @@ public struct UIState: Sendable {
     public var focus: Focus = .tx
     public var window: TUIWindow?
     public var rxScroll = 0
-    public var help = false
     public var message: String?
     public var prompt: Prompt?
     /// The editor of the focused QSO field.
