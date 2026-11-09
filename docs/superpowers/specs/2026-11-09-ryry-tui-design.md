@@ -62,7 +62,7 @@ jako původní okno, ale celá žije v terminálu a využívá ASCII/Unicode art
 - **Fokus:** `Tab`/`⇧Tab` cyklí mezi vysílacím oknem, příjmovým oknem a poli QSO panelu.
 - **Klávesy (návrh, finální mapování v plánu):** F1–F12 makra; ⇧F1–⇧F4 podle toho, co terminál posílá, záložně
   Alt+1–4; ⌘ → Ctrl (Ctrl+T TX/RX, Ctrl+L zalogovat); Esc = okamžitě RX (rozlišení od escape sekvencí časovým
-  limitem); Ctrl+O okna (Log/Spoty/Band mapa/Skóre/Multiplikátory); F-klávesa nebo Ctrl+, pro nastavení; Ctrl+Q konec.
+  limitem); okna Alt+L/S/B/C/M (Log/Spoty/Band mapa/Skóre/Multiplikátory) a Ctrl+O = nabídka oken; Ctrl+P nastavení; Ctrl+G nápověda; Ctrl+Q konec (Ctrl+, a Ctrl+číslice terminál nedoručí).
   Klávesové zkratky z `settings.json` (`KeyBinding`) se mapují, kde to jde; nenamapovatelné ⌘ kombinace mají náhradu.
 - **Testy:** čistý parser vstupu (bajty → události), čistý renderer (stav → buffer buněk) se snapshot testy,
   mapování kláves, hit-testing myši v příjmovém okně; jádro má 830 stávajících testů, které se nesmí rozbít.
