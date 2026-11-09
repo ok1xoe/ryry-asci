@@ -11,12 +11,11 @@ public enum Action: Hashable, Sendable {
     case settings, help, quit, suspend
     case freqEntry, esmEnter
     case rxScrollUp, rxScrollDown
-    case textBigger, textSmaller
 
     public static var allCases: [Action] {
         [.toggleTx, .tune, .stopRx] + (0..<16).map { .macro($0) } + [.logQSO, .clearQSO]
             + TUIWindow.allCases.map { .openWindow($0) }
             + [.windowMenu, .closeWindow, .focusNext, .focusPrev, .settings, .help, .quit, .suspend, .freqEntry, .esmEnter,
-               .rxScrollUp, .rxScrollDown, .textBigger, .textSmaller]
+               .rxScrollUp, .rxScrollDown]
     }
 }

@@ -41,8 +41,6 @@ public struct KeyMap: Sendable {
             Binding(action: .esmEnter, combos: [Combo(key: .enter, mods: .alt)], label: "Alt+Enter"),
             Binding(action: .rxScrollUp, combos: [Combo(key: .pageUp, mods: [])], label: "PgUp"),
             Binding(action: .rxScrollDown, combos: [Combo(key: .pageDown, mods: [])], label: "PgDn"),
-            Binding(action: .textBigger, combos: [c("+", .alt), c("=", .alt)], label: "Alt++"),
-            Binding(action: .textSmaller, combos: [c("-", .alt)], label: "Alt+-"),
         ]
         bindings = b
         var map: [Combo: Action] = [:]

@@ -21,13 +21,15 @@ public enum RxPane {
 
     /// Wraps the runs to `width` columns: at spaces when the word fits, hard otherwise; `\n` starts a new line.
     /// The text is sanitized first, so nothing from the radio can reach the terminal as a control sequence.
-    public static func wrap(_ runs: [RxRun], width: Int) -> [RxLine] {
+    public static func wrap(_ runs: [RxRun], width: Int) -> [RxLine] { wrap(pieces: runs.map { ($0.text, $0.echo) }, width: width) }
+
+    public static func wrap(pieces: [(text: String, echo: Bool)], width: Int) -> [RxLine] {
         let width = max(1, width)
         var lines: [[Ch]] = []
         var cur: [Ch] = []
         var curW = 0
         func flush() { lines.append(cur); cur = []; curW = 0 }
-        for run in runs {
+        for run in pieces {
             for ch in sanitize(run.text, keepNewlines: true) {
                 if ch == "\n" { flush(); continue }
                 let w = max(1, ScreenBuffer.displayWidth(ch))
@@ -73,14 +75,20 @@ public enum RxPane {
         return String(cells[a...b].map(\.c))
     }
 
+    /// The lines shown for a pane `height` rows high when scrolled back by `scroll` lines.
+    public static func visibleRange(count: Int, height: Int, scroll: Int) -> Range<Int> {
+        let scroll = max(0, min(scroll, max(0, count - height)))
+        let end = count - scroll
+        return max(0, end - height)..<end
+    }
+
     /// `scroll` = lines back from the end (0 follows the newest text). Text shorter than the pane is top-aligned.
     public static func draw(into buf: inout ScreenBuffer, rect: Rect, lines: [RxLine], scroll: Int, highlight: (String) -> Style?, focused: Bool) {
         guard rect.w > 0, rect.h > 0 else { return }
         buf.fill(rect)
+        let range = visibleRange(count: lines.count, height: rect.h, scroll: scroll)
         let scroll = max(0, min(scroll, max(0, lines.count - rect.h)))
-        let end = lines.count - scroll
-        let start = max(0, end - rect.h)
-        for (row, line) in lines[start..<end].enumerated() {
+        for (row, line) in lines[range].enumerated() {
             let y = rect.y + row
             for s in line.segments { buf.put(s.text, x: rect.x + s.startCol, y: y, style: s.echo ? echoStyle : .plain, clip: rect) }
             // words get their highlight style (own call, needed station, …)

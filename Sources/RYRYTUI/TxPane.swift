@@ -6,7 +6,7 @@ import TUIKit
 /// The transmit window. Behaves like the GUI's `TxEditor`: a multi-line draft (`AppModel.txDraft`); while transmitting, the text
 /// is sent as it is typed according to the send mode and the sent part leaves the window; Enter is a new line.
 @MainActor
-public struct TxPane {
+public final class TxPane {
     /// The cursor as a character index into `txDraft`.
     public var cursor = 0
     public init() {}
@@ -14,7 +14,7 @@ public struct TxPane {
     private static func next(_ m: SendMode) -> SendMode { switch m { case .char: .word; case .word: .line; case .line: .char } }
 
     /// Returns true when the event was used.
-    public mutating func handle(_ event: InputEvent, model: AppModel) async -> Bool {
+    public func handle(_ event: InputEvent, model: AppModel) async -> Bool {
         var chars = Array(model.txDraft)
         cursor = min(max(0, cursor), chars.count)
         func lineStart(_ i: Int) -> Int { var j = i; while j > 0, chars[j - 1] != "\n" { j -= 1 }; return j }
@@ -54,7 +54,7 @@ public struct TxPane {
         return true
     }
 
-    private mutating func afterEdit(_ model: AppModel) async {
+    private func afterEdit(_ model: AppModel) async {
         let transmitting = model.state != .rx && model.state != .stopped
         let col = model.settings.txWindow.wrapColumn
         if col > 0 {
@@ -64,10 +64,10 @@ public struct TxPane {
         if transmitting { await send(model, mode: model.sendMode) }
     }
 
-    private mutating func sendAll(_ model: AppModel) async { await send(model, mode: .char) }
+    private func sendAll(_ model: AppModel) async { await send(model, mode: .char) }
 
     /// Sends according to `mode`; the text that left the draft moves the cursor back accordingly.
-    private mutating func send(_ model: AppModel, mode: SendMode) async {
+    private func send(_ model: AppModel, mode: SendMode) async {
         let before = model.txDraft.count
         await model.sendDraft(mode: mode)
         cursor = max(0, cursor - (before - model.txDraft.count))

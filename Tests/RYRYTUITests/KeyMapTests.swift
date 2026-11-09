@@ -43,8 +43,6 @@ private func ev(_ k: Key, _ m: Modifiers = []) -> InputEvent { .key(k, m) }
     #expect(map.action(for: ev(.char("x"), .alt)) == .clearQSO)
     #expect(map.action(for: ev(.char("f"), .alt)) == .freqEntry)
     #expect(map.action(for: ev(.enter, .alt)) == .esmEnter)
-    #expect(map.action(for: ev(.char("+"), .alt)) == .textBigger)
-    #expect(map.action(for: ev(.char("-"), .alt)) == .textSmaller)
 }
 @Test func plainCharactersAreNotActions() {
     #expect(map.action(for: ev(.char("a"))) == nil)
