@@ -16,6 +16,7 @@ public final class MainScreen {
     public var onSuspend: (() -> Void)?
     private let keymap = KeyMap()
     private var rxCache: (key: [Int], lines: [RxLine])?
+    private var overlay: (any OverlayScreen)?
 
     public init(model: AppModel, caps: Capabilities, size: (cols: Int, rows: Int)) {
         self.model = model; self.caps = caps; self.size = size
@@ -29,6 +30,7 @@ public final class MainScreen {
 
     public func render(now: Date = Date()) -> ScreenBuffer {
         var buf = ScreenBuffer(width: size.cols, height: size.rows)
+        if let o = overlay { o.draw(into: &buf, rect: Rect(0, 0, size.cols, size.rows), model: model); return buf }
         guard let l = layout else {
             buf.put("Terminal too small (need \(MainLayout.minCols)×\(MainLayout.minRows))", x: 0, y: 0, style: Style(bold: true), clip: nil)
             buf.put("now \(size.cols)×\(size.rows)", x: 0, y: 1, style: Style(dim: true), clip: nil)
@@ -94,6 +96,16 @@ public final class MainScreen {
             await promptInput(event)
             return true
         }
+        if let o = overlay {
+            if let a = action {
+                switch a {
+                case .quit, .suspend, .openWindow, .windowMenu: return await perform(a)
+                default: break
+                }
+            }
+            if await o.handle(event, model: model, rect: Rect(0, 0, size.cols, size.rows)) == .close { openOverlay(nil) }
+            return true
+        }
         if ui.focus == .tx, case .key(.enter, .alt) = event { _ = await tx.handle(event, model: model); return true }
         if let a = action { return await perform(a) }
         switch event {
@@ -109,13 +121,15 @@ public final class MainScreen {
         case .toggleTx: await model.toggleTx()
         case .tune: await model.tune()
         case .stopRx:
-            if ui.prompt != nil { ui.prompt = nil } else if ui.window != nil { ui.window = nil } else { await model.rxNow() }
+            if ui.prompt != nil { ui.prompt = nil } else { await model.rxNow() }
         case .macro(let i): _ = await model.runMacro(i)
         case .logQSO: await model.logQSO(); syncEditor()
         case .clearQSO: await model.clearQSO(); syncEditor()
-        case .openWindow(let w): ui.window = w
-        case .windowMenu: ui.window = ui.window ?? .log
-        case .closeWindow: ui.window = nil
+        case .openWindow(let w): openOverlay(w)
+        case .windowMenu:       // for terminals without Alt: Ctrl+O steps through the windows
+            let all = TUIWindow.allCases
+            openOverlay(ui.window.flatMap { all.firstIndex(of: $0) }.map { all[($0 + 1) % all.count] } ?? all[0])
+        case .closeWindow: openOverlay(nil)
         case .focusNext: focus(forward: true)
         case .focusPrev: focus(forward: false)
         case .settings: break
@@ -142,6 +156,18 @@ public final class MainScreen {
         default: break
         }
         ui.prompt = p
+    }
+
+    private func openOverlay(_ w: TUIWindow?) {
+        ui.window = w
+        switch w {
+        case .log: overlay = LogScreen()
+        case .spots: overlay = SpotsScreen()
+        case .bandMap: overlay = BandMapScreen()
+        case .score: overlay = ScoreScreen()
+        case .multipliers: overlay = MultipliersScreen()
+        case nil: overlay = nil
+        }
     }
 
     // MARK: focus and QSO fields
