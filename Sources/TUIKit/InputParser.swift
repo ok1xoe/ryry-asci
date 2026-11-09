@@ -6,6 +6,7 @@ public struct InputParser: Sendable {
     private var buf: [UInt8] = []
     private var pasting = false
     private var pasteBytes: [UInt8] = []
+    private static let maxPaste = 1 << 20          // a paste that never ends must not swallow all further input
     private static let pasteEnd: [UInt8] = [0x1B, 0x5B, 0x32, 0x30, 0x31, 0x7E]       // ESC [ 2 0 1 ~
 
     public init() {}
@@ -16,6 +17,7 @@ public struct InputParser: Sendable {
         while !buf.isEmpty {
             if pasting {
                 pasteBytes += buf; buf.removeAll()
+                if pasteBytes.count > Self.maxPaste, Self.find(Self.pasteEnd, in: pasteBytes) == nil { pasteBytes.removeAll(); pasting = false; continue }
                 if let r = Self.find(Self.pasteEnd, in: pasteBytes) {
                     events.append(.paste(String(decoding: pasteBytes[..<r], as: UTF8.self)))
                     buf = Array(pasteBytes[(r + Self.pasteEnd.count)...])

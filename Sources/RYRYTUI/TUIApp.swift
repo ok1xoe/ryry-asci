@@ -113,7 +113,7 @@ public final class TUIApp {
             FileHandle.standardError.write(Data("ryry-tui needs an interactive terminal.\n".utf8)); return 2
         }
         let model = self.model
-        session.onTerminate = { sig in Task { @MainActor in await model.shutdown(); exit(128 + sig) } }
+        session.onTerminate = { sig in Task { @MainActor in await model.shutdown(); exit(128 + sig) } }   // the session has already stopped writing
         await model.start()
         if let fail = Self.startupFailure(model) {
             session.stop()
@@ -123,24 +123,24 @@ public final class TUIApp {
         }
         let screen = MainScreen(model: model, caps: caps, size: session.size)
         screen.onSuspend = { [session] in session.suspend() }
-        let writer = ANSIWriter(caps: caps)
-        var previous: ScreenBuffer?
+        let frames = FrameWriter(session: session, writer: ANSIWriter(caps: caps))
+        var fullRedraw = true
         func present() {
-            let b = screen.render()
-            session.write(writer.render(b, previous: previous))
-            previous = b
+            frames.submit(screen.render(), full: fullRedraw)          // never blocks: a slow terminal only drops frames
+            fullRedraw = false
         }
         present()
         let ticker = Task { @MainActor in
             while !Task.isCancelled { try? await Task.sleep(for: .milliseconds(66)); present() }
         }
         for await e in session.events {
-            if case .resize = e { previous = nil }
+            if case .resize = e { fullRedraw = true }
             let keepGoing = await screen.handle(e)
             present()
             if !keepGoing { break }
         }
         ticker.cancel()
+        frames.stop()
         session.stop()
         await model.shutdown()
         return 0

@@ -1,4 +1,5 @@
 // Copyright 2026 OK1XOE (RYRY), LGPL v3
+import Engine
 import Foundation
 import Settings
 import Testing
@@ -171,5 +172,64 @@ private func key(_ k: Key, _ m: Modifiers = []) -> InputEvent { .key(k, m) }
     let b = s.render(now: Date())
     #expect(b.width == 20 && b.height == 5)
     _ = await s.handle(click(3, 3))                                                    // clicking the notice is harmless
+    await f.model.stop()
+}
+
+// MARK: review fixes
+
+@MainActor private func transmitting(_ f: TUIFixture, _ s: MainScreen) async {
+    await f.model.toggleTx()
+    for _ in 0..<20 { await f.pump(); if f.model.state != .rx { break } }
+    await f.settle()
+}
+
+@Test @MainActor func suspendWhileTransmittingFirstReturnsToReceive() async {
+    let f = TUIFixture(); let s = await screen(f)
+    await transmitting(f, s)
+    #expect(f.model.state != .rx && f.model.state != .stopped)
+    var stateAtSuspend: EngineState?
+    s.onSuspend = { stateAtSuspend = f.model.state }
+    let pumper = Task { @MainActor in for _ in 0..<150 { await f.pump(); try? await Task.sleep(for: .milliseconds(10)) } }
+    _ = await s.handle(key(.char("z"), .ctrl))
+    pumper.cancel()
+    #expect(stateAtSuspend == .rx || stateAtSuspend == .stopped, "suspended with the transmitter keyed: \(String(describing: stateAtSuspend))")
+    await f.model.stop()
+}
+
+@Test @MainActor func suspendWhileReceivingSuspendsAtOnce() async {
+    let f = TUIFixture(); let s = await screen(f)
+    var called = false
+    s.onSuspend = { called = true }
+    _ = await s.handle(key(.char("z"), .ctrl))
+    #expect(called)
+    await f.model.stop()
+}
+
+@Test @MainActor func escInAWindowFirstStopsTheTransmissionAndKeepsTheWindow() async {
+    let f = TUIFixture(); let s = await screen(f)
+    await transmitting(f, s)
+    _ = await s.handle(key(.char("l"), .alt))
+    #expect(s.ui.window == .log)
+    #expect(allText(s.render(now: Date())).contains(" TX "))                          // the full-screen window still shows that we transmit
+    _ = await s.handle(key(.escape))
+    for _ in 0..<60 { await f.pump(); if await f.engine.state == .rx { break } }
+    await f.settle()
+    #expect(await f.engine.state == .rx)
+    #expect(s.ui.window == .log)                                                      // the first Esc stopped the TX only
+    _ = await s.handle(key(.escape))
+    #expect(s.ui.window == nil)
+    await f.model.stop()
+}
+
+@Test @MainActor func txKeysWorkInsideAWindow() async {
+    let f = TUIFixture(); f.configure = { $0.macros = [Macro(name: "CQ", text: "CQ CQ DE %m")] }
+    let s = await screen(f)
+    _ = await s.handle(key(.char("s"), .alt))
+    #expect(s.ui.window == .spots)
+    _ = await s.handle(key(.f(1)))
+    for _ in 0..<400 { await f.pump(); if await f.engine.state == .rx { break } }
+    await f.settle()
+    #expect(f.model.rxRuns.filter(\.echo).map(\.text).joined().contains("CQ CQ DE OK1XOE"))
+    #expect(s.ui.window == .spots)
     await f.model.stop()
 }

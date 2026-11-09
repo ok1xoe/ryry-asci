@@ -26,11 +26,19 @@ public final class MainScreen {
         MainLayout.compute(cols: size.cols, rows: size.rows, secondDecoder: model.settings.decoders.secondEnabled)
     }
 
+    private var isTransmitting: Bool { model.state != .rx && model.state != .stopped }
+
     // MARK: drawing
 
     public func render(now: Date = Date()) -> ScreenBuffer {
         var buf = ScreenBuffer(width: size.cols, height: size.rows)
-        if let o = overlay { o.draw(into: &buf, rect: Rect(0, 0, size.cols, size.rows), model: model); return buf }
+        if let o = overlay {
+            o.draw(into: &buf, rect: Rect(0, 0, size.cols, size.rows), model: model)
+            if isTransmitting {                  // a full-screen window must not hide that the transmitter is on
+                buf.put(" TX ", x: max(0, size.cols / 2 - 2), y: 0, style: Style(fg: .rgb(255, 255, 255), bg: .rgb(190, 40, 40), bold: true), clip: nil)
+            }
+            return buf
+        }
         guard let l = layout else {
             buf.put("Terminal too small (need \(MainLayout.minCols)×\(MainLayout.minRows))", x: 0, y: 0, style: Style(bold: true), clip: nil)
             buf.put("now \(size.cols)×\(size.rows)", x: 0, y: 1, style: Style(dim: true), clip: nil)
@@ -99,7 +107,8 @@ public final class MainScreen {
         if let o = overlay {
             if let a = action {
                 switch a {
-                case .quit, .suspend, .openWindow, .windowMenu: return await perform(a)
+                case .quit, .suspend, .openWindow, .windowMenu, .toggleTx, .tune, .macro: return await perform(a)
+                case .stopRx where isTransmitting: await model.rxNow(); return true          // the first Esc stops the transmitter, the window stays
                 default: break
                 }
             }
@@ -135,7 +144,11 @@ public final class MainScreen {
         case .settings: ui.window = nil; overlay = SettingsMenu(model: model)
         case .help: ui.window = nil; overlay = HelpScreen()
         case .quit: return false
-        case .suspend: onSuspend?()
+        case .suspend:
+            // never freeze the process with the transmitter keyed: go to receive first and wait until the engine really is there
+            await model.rxNow()
+            for _ in 0..<100 where isTransmitting { try? await Task.sleep(for: .milliseconds(20)) }
+            if isTransmitting { ui.message = "Cannot suspend while transmitting" } else { onSuspend?() }
         case .freqEntry: ui.prompt = Prompt(kind: .frequency, title: "Frequency (kHz)")
         case .esmEnter: if let msg = await model.esmEnter() { ui.message = msg }
         case .rxScrollUp: ui.rxScroll += max(1, (layout?.rx.h ?? 4) / 2)

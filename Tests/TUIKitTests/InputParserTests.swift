@@ -85,3 +85,12 @@ private func key(_ k: Key, _ m: Modifiers = []) -> InputEvent { .key(k, m) }
     var p = InputParser()
     #expect(p.feed([0xFF, 0x63]) == [key(.char("c"))])        // invalid UTF-8 lead byte
 }
+
+@Test func unterminatedPasteIsDroppedAfterTheCapAndInputWorksAgain() {
+    var p = InputParser()
+    #expect(p.feed(bytes("\u{1B}[200~")).isEmpty)
+    let chunk = [UInt8](repeating: 0x41, count: 256 * 1024)
+    for _ in 0..<5 { _ = p.feed(chunk) }                                    // 1.25 MB and the end marker never comes
+    #expect(p.feed(bytes("x")) == [key(.char("x"))])
+    #expect(p.flushPendingEscape().isEmpty)
+}

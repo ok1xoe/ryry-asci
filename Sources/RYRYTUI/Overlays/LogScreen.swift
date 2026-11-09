@@ -14,7 +14,7 @@ public final class LogScreen: OverlayScreen {
     private var status = ""
 
     private enum Kind { case importADIF, exportCabrillo, exportADIF }
-    private enum Mode { case browse, search(LineEditor), edit(field: Int, editing: LineEditor?), confirmDelete, path(Kind, PathPrompt) }
+    private enum Mode { case browse, search(LineEditor), edit(id: UUID, field: Int, editing: LineEditor?), confirmDelete(UUID), path(Kind, PathPrompt) }
     private var mode = Mode.browse
 
     public init() {}
@@ -100,19 +100,19 @@ public final class LogScreen: OverlayScreen {
         switch mode {
         case .browse: break
         case .search(let ed): note = "Search: " + ed.text + "▏"; hint = "Enter apply · Esc clear"
-        case .confirmDelete:
-            if selected < recs.count { note = "Delete QSO with \(sanitize(recs[selected].call))? (y/n)" }
+        case .confirmDelete(let id):
+            if let r = model.logRecords.first(where: { $0.id == id }) { note = "Delete QSO with \(sanitize(r.call))? (y/n)" }
         case .path(let k, let p):
             let what = k == .importADIF ? "Import ADIF from" : k == .exportCabrillo ? "Export Cabrillo to" : "Export ADIF to"
             note = "\(what): " + p.editor.text + "▏" + (p.candidates.count > 1 ? "   [" + p.candidates.prefix(4).map { ($0 as NSString).lastPathComponent }.joined(separator: " ") + (p.candidates.count > 4 ? " …" : "") + "]" : "")
             hint = "Tab complete · Enter run · Esc cancel"
-        case .edit(let f, let editing):
+        case .edit(let id, let f, let editing):
             hint = editing == nil ? "↑↓ field · Enter edit value · Esc back" : "type the value · Enter save · Esc cancel"
-            if selected < recs.count {
+            if let rec = model.logRecords.first(where: { $0.id == id }) {
                 let y0 = rect.y + 2 + h
-                buf.put("Edit QSO \(sanitize(recs[selected].call)):".fitted(to: rect.w), x: rect.x, y: y0, style: Style(bold: true), clip: rect)
+                buf.put("Edit QSO \(sanitize(rec.call)):".fitted(to: rect.w), x: rect.x, y: y0, style: Style(bold: true), clip: rect)
                 for (i, fld) in Self.fields.enumerated() {
-                    let v = (i == f && editing != nil) ? editing!.text + "▏" : sanitize(Self.value(recs[selected], fld.key))
+                    let v = (i == f && editing != nil) ? editing!.text + "▏" : sanitize(Self.value(rec, fld.key))
                     buf.put(("  " + fld.label.fitted(to: 10) + v).fitted(to: rect.w), x: rect.x, y: y0 + 1 + i, style: Style(inverse: i == f), clip: rect)
                 }
             }
@@ -130,14 +130,14 @@ public final class LogScreen: OverlayScreen {
             switch e {
             case .key(.escape, _): return .close
             case .key(.char("/"), []): mode = .search(LineEditor(text: filter))
-            case .key(.enter, []): if !recs.isEmpty { mode = .edit(field: 0, editing: nil) }
-            case .key(.char("d"), []), .key(.delete, _): if !recs.isEmpty { mode = .confirmDelete }
+            case .key(.enter, []): if selected < recs.count { mode = .edit(id: recs[selected].id, field: 0, editing: nil) }
+            case .key(.char("d"), []), .key(.delete, _): if selected < recs.count { mode = .confirmDelete(recs[selected].id) }
             case .key(.char("i"), []): mode = .path(.importADIF, PathPrompt(initial: "~/"))
             case .key(.char("e"), []): mode = .path(.exportCabrillo, PathPrompt(initial: "~/"))
             case .key(.char("a"), []): mode = .path(.exportADIF, PathPrompt(initial: "~/"))
             case .mouse(let m) where m.kind == .press && m.button == .left:
                 let row = top + (m.y - (rect.y + 2))
-                if m.y >= rect.y + 2, row < recs.count { if row == selected, !recs.isEmpty { mode = .edit(field: 0, editing: nil) } else { selected = row } }
+                if m.y >= rect.y + 2, row < recs.count { if row == selected { mode = .edit(id: recs[row].id, field: 0, editing: nil) } else { selected = row } }
             default: break
             }
         case .search(var ed):
@@ -148,28 +148,31 @@ public final class LogScreen: OverlayScreen {
             case .paste(let s): ed.insert(s); mode = .search(ed)
             default: break
             }
-        case .confirmDelete:
-            if case .key(.char("y"), _) = e, selected < recs.count { await model.deleteLog(recs[selected].id); status = "Deleted" }
-            if case .key(.char(let c), _) = e, c != "y" || selected >= recs.count { mode = .browse }
-            if case .key(.escape, _) = e { mode = .browse }
-            if case .key(.char("y"), _) = e { mode = .browse }
-        case .edit(let f, let editing):
-            guard selected < recs.count else { mode = .browse; break }
+        case .confirmDelete(let id):
+            switch e {
+            case .key(.char("y"), _):
+                if model.logRecords.contains(where: { $0.id == id }) { await model.deleteLog(id); status = "Deleted" } else { status = "That QSO no longer exists" }
+                mode = .browse
+            case .key(.char, _), .key(.escape, _): mode = .browse
+            default: break
+            }
+        case .edit(let id, let f, let editing):
+            guard let rec = model.logRecords.first(where: { $0.id == id }) else { mode = .browse; status = "That QSO no longer exists"; break }
             if var ed = editing {
                 switch e {
                 case .key(.enter, _):
-                    await model.updateLog(Self.set(recs[selected], Self.fields[f].key, ed.text))
+                    await model.updateLog(Self.set(rec, Self.fields[f].key, ed.text))
                     mode = .browse
-                case .key(.escape, _): mode = .edit(field: f, editing: nil)
-                case .key(let k, let m): ed.handle(k, m); mode = .edit(field: f, editing: ed)
-                case .paste(let s): ed.insert(s); mode = .edit(field: f, editing: ed)
+                case .key(.escape, _): mode = .edit(id: id, field: f, editing: nil)
+                case .key(let k, let m): ed.handle(k, m); mode = .edit(id: id, field: f, editing: ed)
+                case .paste(let s): ed.insert(s); mode = .edit(id: id, field: f, editing: ed)
                 default: break
                 }
             } else {
                 switch e {
-                case .key(.up, _): mode = .edit(field: max(0, f - 1), editing: nil)
-                case .key(.down, _): mode = .edit(field: min(Self.fields.count - 1, f + 1), editing: nil)
-                case .key(.enter, _): mode = .edit(field: f, editing: LineEditor(text: Self.value(recs[selected], Self.fields[f].key)))
+                case .key(.up, _): mode = .edit(id: id, field: max(0, f - 1), editing: nil)
+                case .key(.down, _): mode = .edit(id: id, field: min(Self.fields.count - 1, f + 1), editing: nil)
+                case .key(.enter, _): mode = .edit(id: id, field: f, editing: LineEditor(text: Self.value(rec, Self.fields[f].key)))
                 case .key(.escape, _): mode = .browse
                 default: break
                 }

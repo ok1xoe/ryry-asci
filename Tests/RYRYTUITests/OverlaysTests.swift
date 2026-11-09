@@ -84,6 +84,22 @@ private func chars(_ s: String) -> [InputEvent] { s.map { key(.char($0)) } }
     await f.model.stop()
 }
 
+@Test @MainActor func logEditAndDeleteFollowTheRecordWhenTheLogChangesUnderneath() async {
+    let f = TUIFixture(); await logged(f, calls: ["DL1ABC"])
+    let s = LogScreen()
+    _ = await send(s, [key(.enter), key(.down), key(.down), key(.down), key(.enter)] + chars("BOB"), f.model)      // editing DL1ABC's name
+    await f.model.setQSOField("call", "OK2XYZ"); await f.model.logQSO(); await f.settle()                    // a new QSO lands at the top
+    _ = await send(s, [key(.enter)], f.model); await f.settle()
+    let byCall = Dictionary(uniqueKeysWithValues: f.model.logRecords.map { ($0.call, $0) })
+    #expect(byCall["DL1ABC"]?.name == "BOB" && byCall["OK2XYZ"]?.name == nil, "the edit went to the wrong QSO")
+    let t = LogScreen()
+    _ = await send(t, [key(.down), key(.char("d"))], f.model)                                                 // delete DL1ABC (second row)
+    await f.model.setQSOField("call", "OK3NEW"); await f.model.logQSO(); await f.settle()
+    _ = await send(t, [key(.char("y"))], f.model); await f.settle()
+    #expect(f.model.logRecords.map(\.call).sorted() == ["OK2XYZ", "OK3NEW"], "the delete hit the wrong QSO: \(f.model.logRecords.map(\.call))")
+    await f.model.stop()
+}
+
 @Test @MainActor func logEditChangesAFieldAndEscCancels() async {
     let f = TUIFixture(); await logged(f, calls: ["DL1ABC"])
     let s = LogScreen()

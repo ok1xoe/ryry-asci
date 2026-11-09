@@ -64,6 +64,7 @@ public final class TerminalSession: @unchecked Sendable {
     private let queue = DispatchQueue(label: "tuikit.terminal")
     private let lock = NSLock()
     private let outLock = NSLock()
+    private var accepting = false                 // guarded by outLock: only between start() and stop()
     private var saved: termios?
     private var active = false
     private var parser = InputParser()
@@ -100,7 +101,7 @@ public final class TerminalSession: @unchecked Sendable {
         tcsetattr(inputFD, TCSAFLUSH, &raw)
         active = true
         crashRegister(inFD: inputFD, outFD: outputFD, termios: t)
-        write(TerminalModes.enter(mouse: caps.mouse))
+        outLock.lock(); accepting = true; writeLocked(TerminalModes.enter(mouse: caps.mouse)); outLock.unlock()
         installSources()
     }
 
@@ -112,7 +113,7 @@ public final class TerminalSession: @unchecked Sendable {
         readSource?.cancel(); readSource = nil
         signalSources.forEach { $0.cancel() }; signalSources.removeAll()
         for s in Self.handledSignals { signal(s, s == SIGWINCH ? SIG_IGN : SIG_DFL) }
-        write(TerminalModes.leave)
+        outLock.lock(); if accepting { writeLocked(TerminalModes.leave); accepting = false }; outLock.unlock()
         if var t = saved { tcsetattr(inputFD, TCSANOW, &t) }      // not DRAIN: the leave bytes contain no newline, and DRAIN would block until the terminal reads
         crashUnregister()
     }
@@ -125,8 +126,14 @@ public final class TerminalSession: @unchecked Sendable {
         continuation.yield(.resize(cols: size.cols, rows: size.rows))
     }
 
+    /// Ignored when the terminal is not in application mode (before start(), after stop()), so a late frame can never paint over the shell.
     public func write(_ bytes: [UInt8]) {
         outLock.lock(); defer { outLock.unlock() }
+        guard accepting else { return }
+        writeLocked(bytes)
+    }
+
+    private func writeLocked(_ bytes: [UInt8]) {
         var off = 0
         while off < bytes.count {
             let n = bytes[off...].withUnsafeBytes { Darwin.write(outputFD, $0.baseAddress, $0.count) }
