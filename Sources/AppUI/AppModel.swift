@@ -228,6 +228,9 @@ public final class AppModel {
         await t.value
     }
 
+    /// The settings file (for tools that need to look at what is on disk, e.g. the console version's settings menu).
+    public var settingsURL: URL { settingsStore.url }
+
     public init(settingsStore: SettingsStore = SettingsStore(), profileStore: ProfileStore = ProfileStore(),
                 engineFactory: EngineFactory? = nil, spectrumFPS: Double = 15,
                 secrets: SecretStore = KeychainSecretStore(), callbookFetcher: @escaping HTTPFetcher = CallbookFactory.liveFetcher,

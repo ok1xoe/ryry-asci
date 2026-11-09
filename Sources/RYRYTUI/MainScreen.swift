@@ -132,7 +132,7 @@ public final class MainScreen {
         case .closeWindow: openOverlay(nil)
         case .focusNext: focus(forward: true)
         case .focusPrev: focus(forward: false)
-        case .settings: break
+        case .settings: ui.window = nil; overlay = SettingsMenu(model: model)
         case .help: ui.help.toggle()
         case .quit: return false
         case .suspend: onSuspend?()
